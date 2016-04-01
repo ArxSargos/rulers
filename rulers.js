@@ -296,8 +296,7 @@ function _rlrs_buildControlPanel() {
 
 function _rlrs_setPanelPosition() {
 	var panel = document.querySelector("#_rlrs_panel");
-	var pos = this.getAttribute("data-position");
-	console.log("position",pos);
+	var pos = this.getAttribute("data-position"); 
 	/* panel position reset */
 	panel.style.left = "auto";
 	panel.style.right = "auto";
