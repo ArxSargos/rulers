@@ -37,12 +37,12 @@ var _rlrsRulers = function () {
 	/* inject base64 images and styles */
 	this.scaleVertical  = "._rlrs_scaleVert {";
 	this.scaleVertical += "background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAyCAMAAAC58gFMAAAACVBMVEX/AAD/////AACEEbvXAAAAAnRSTlMAAHaTzTgAAAAmSURBVHgBY2CEARwsBiYmJjyyIIDGYgIBZHW0t4Metg15O5hgAACsSAG4OZBTvgAAAABJRU5ErkJggg==);";
-	this.scaleVertical += "background-position: 0px 1px; background-repeat: repeat-y; height: 100%; margin-left: -3px; width: 9px;"
+	this.scaleVertical += "background-position: 0px 1px; background-repeat: repeat-y; height: 100%; margin-left: -3px; width: 9px;";
 	this.scaleVertical += "}";
 
 	this.scaleHorizontal  = "._rlrs_scaleHor {";
 	this.scaleHorizontal += "background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAJCAMAAABHXI/tAAAACVBMVEX/AAD/////AACEEbvXAAAAAnRSTlMAAHaTzTgAAAAwSURBVHgBY2AkFTCRr4WBgYkRwUIwsbEYQPqgYggWDkEmOmthgIkhWAgmJos+gQwAjSkBuKKlVusAAAAASUVORK5CYII=);";
-	this.scaleHorizontal += "background-position: 1px 0px; background-repeat: repeat-x; width: 100%; margin-top: -3px; height: 9px;"
+	this.scaleHorizontal += "background-position: 1px 0px; background-repeat: repeat-x; width: 100%; margin-top: -3px; height: 9px;";
 	this.scaleHorizontal += "}";
 
 	this.headRef = document.head || document.getElementsByTagName('head')[0];
@@ -53,7 +53,6 @@ var _rlrsRulers = function () {
 	this.headRef.innerHTML += this.rulersStyles;
 
 	this.rulerColor = "rgba(255,30,0,1)";
-
 
 	/* init */
 	this._buildControlPanel();
