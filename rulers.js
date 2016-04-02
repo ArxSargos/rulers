@@ -7,56 +7,115 @@
 */
 
 javascript:
+"use strict";
 
-/* build rulers workspace in body */
-var bodyRef = document.querySelector("body");
-var workspace = document.createElement("div");
-	workspace.style.position = "absolute";
-	workspace.style.left = "0";
-	workspace.style.top = "0";
-	workspace.style.width = "0";
-	workspace.style.height = "0";
-	workspace.style.overflow = "visible";
+/* rulers class */
+var _rlrsRulers = function () {
+	this.bodyRef = document.querySelector("body");
 
-bodyRef.appendChild(workspace);
-var rootSpace = /*workspace.createShadowRoot();*/ workspace;
+	this.workspace = document.createElement("div");
+	this.workspace.style.position = "absolute";
+	this.workspace.style.left = "0";
+	this.workspace.style.top = "0";
+	this.workspace.style.width = "0";
+	this.workspace.style.height = "0";
+	this.workspace.style.overflow = "visible";
 
-/* globals */
-var htmlRef = document.documentElement;
-window._rlrs_height =  Math.max( bodyRef.scrollHeight, bodyRef.offsetHeight, htmlRef.clientHeight, htmlRef.scrollHeight, htmlRef.offsetHeight );
-window._rlrs_width =  Math.max( bodyRef.scrollWidth, bodyRef.offsetWidth, htmlRef.clientWidth, htmlRef.scrollWidth, htmlRef.offsetWidth );
-window._rlrs_movingRuler = null;
+	this.bodyRef.appendChild(this.workspace);
+	/* modify to shadowRoot when nativelly supported */
+	this.rootSpace = /*workspace.createShadowRoot();*/ this.workspace;
 
-/* mousemove handler */
-document.addEventListener("mousemove", _rlrs_mouseMove);
+	/* screen parameters */
+	this.htmlRef = document.documentElement;
+	this.rlrs_height =  Math.max( this.bodyRef.scrollHeight, this.bodyRef.offsetHeight, this.htmlRef.clientHeight, this.htmlRef.scrollHeight, this.htmlRef.offsetHeight );
+	this.rlrs_width =  Math.max( this.bodyRef.scrollWidth, this.bodyRef.offsetWidth, this.htmlRef.clientWidth, this.htmlRef.scrollWidth, this.htmlRef.offsetWidth );
+	this.rlrs_movingRuler = null;
 
-function _rlrs_createRulerVertical() {
-	var opts = {
-		"type": "v",
-		"notStored": true
-	};
-	__rlrs_createRuler(opts);
+	/* mousemove handler */
+	document.addEventListener("mousemove", this._mouseMove.bind(this));
+
+	/* inject base64 images and styles */
+	this.scaleVertical  = "._rlrs_scaleVert {";
+	this.scaleVertical += "background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAyCAMAAAC58gFMAAAACVBMVEX/AAD/////AACEEbvXAAAAAnRSTlMAAHaTzTgAAAAmSURBVHgBY2CEARwsBiYmJjyyIIDGYgIBZHW0t4Metg15O5hgAACsSAG4OZBTvgAAAABJRU5ErkJggg==);";
+	this.scaleVertical += "background-position: 0px 1px; background-repeat: repeat-y; height: 100%; margin-left: -3px; width: 9px;"
+	this.scaleVertical += "}";
+
+	this.scaleHorizontal  = "._rlrs_scaleHor {";
+	this.scaleHorizontal += "background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAJCAMAAABHXI/tAAAACVBMVEX/AAD/////AACEEbvXAAAAAnRSTlMAAHaTzTgAAAAwSURBVHgBY2AkFTCRr4WBgYkRwUIwsbEYQPqgYggWDkEmOmthgIkhWAgmJos+gQwAjSkBuKKlVusAAAAASUVORK5CYII=);";
+	this.scaleHorizontal += "background-position: 1px 0px; background-repeat: repeat-x; width: 100%; margin-top: -3px; height: 9px;"
+	this.scaleHorizontal += "}";
+
+	this.headRef = document.head || document.getElementsByTagName('head')[0];
+
+	this.rulersStyles = "<style>";
+	this.rulersStyles += this.scaleVertical + this.scaleHorizontal;
+	this.rulersStyles += "</style>";
+	this.headRef.innerHTML += this.rulersStyles;
+
+	this.rulerColor = "rgba(255,30,0,1)";
+
+
+	/* init */
+	this._buildControlPanel();
+
+	/* try to load from localStorage */
+	var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {} ;
+	if (storage.rulers) {
+		for (var i in storage.rulers) {
+			var opts = {
+				"hash": storage.rulers[i].hash,
+				"type": storage.rulers[i].type,
+				"left": storage.rulers[i].left,
+				"top": storage.rulers[i].top,
+				"scope": storage.rulers[i].scope
+			};
+
+			this.__createRuler(opts);
+		}
+	}
 }
-function _rlrs_createRulerHorizontal() {
-	var opts = {
-		"type": "h",
-		"notStored": true
-	};
-	__rlrs_createRuler(opts);
-}
 
-function __rlrs_newHash() {
+_rlrsRulers.prototype.__newHash = function() {
 	return Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);
 }
 
-function __rlrs_createRuler(opts) {
-	var stH = (window._rlrs_height).toString() + "px";
-	var stL = (window._rlrs_width).toString() + "px";
-	var stHhalf = (Math.floor(window._rlrs_height/2)).toString() + "px";
-	var stLhalf = (Math.floor(window._rlrs_width/2)).toString() + "px";
+_rlrsRulers.prototype._rulerSelected = function(ruler) {
+	this._rlrs_movingRuler = ruler;
+}
+
+_rlrsRulers.prototype._rulerDeselected = function(ruler) {
+	var hash = ruler.getAttribute("data-hash");
+	/* save his new position */
+	var storage = JSON.parse(localStorage.getItem('_rlrs_'));
+	for (var i in storage.rulers) {
+		if (storage.rulers[i].hash===hash) {
+			storage.rulers[i].left =  ruler.style.left;
+			storage.rulers[i].top =  ruler.style.top;
+		}
+	}
+	localStorage.setItem('_rlrs_', JSON.stringify(storage));
+
+	this._rlrs_movingRuler = null;
+}
+
+_rlrsRulers.prototype._activateListener = function(ruler) {
+	var self = this;
+	ruler.addEventListener("mousedown", function() {
+		self._rulerSelected(ruler);
+	}.bind(ruler));
+	ruler.addEventListener("mouseup", function() {
+		self._rulerDeselected(ruler);
+	}.bind(ruler));
+}
+
+_rlrsRulers.prototype.__createRuler = function(opts) {
+	var stH = (this.rlrs_height).toString() + "px";
+	var stL = (this.rlrs_width).toString() + "px";
+	var stHhalf = (Math.floor(this.rlrs_height/2)).toString() + "px";
+	var stLhalf = (Math.floor(this.rlrs_width/2)).toString() + "px";
 	var windVertHalf = (Math.floor((screen.height/2)) + window.pageYOffset).toString() + "px";
 
-	var hash = opts.hash ? opts.hash : __rlrs_newHash();
+	var hash = opts.hash ? opts.hash : this.__newHash();
 
 	var ruler = document.createElement("div");
 		ruler.classList.add("_rlrs_ruler");
@@ -84,6 +143,7 @@ function __rlrs_createRuler(opts) {
 		ruler.setAttribute("style", bckgGrad);
 
 		ruler.style.position = "absolute";
+		ruler.style.overflow = "visible"
 		ruler.style.zIndex  = 9999;
 		ruler.setAttribute('data-type', opts.type);
 		ruler.setAttribute('data-hash', hash);
@@ -101,77 +161,87 @@ function __rlrs_createRuler(opts) {
 		ruler.style.cursor = "row-resize";
 		ruler.style.top = opts.top ? opts.top : windVertHalf;
 	}
-	rootSpace.appendChild(ruler);
+
+	if(opts.scope===true) {
+		ruler.innerHTML = (opts.type==='v') ? '<div class="_rlrs_scaleVert"></div>' : '<div class="_rlrs_scaleHor"></div>';
+	}
+
+	this.rootSpace.appendChild(ruler);
 
 	/* activate mouse listener */
-	_rlrs_activateListener(ruler);
+	this._activateListener(ruler);
 
 	/* add ruler to localStorage if new */
 	if(opts.notStored) {
 		var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {"rulers": []} ;
-		storage.rulers.push({"hash": hash, "type": opts.type, "left": ruler.style.left, "top": ruler.style.top});
+		storage.rulers.push({"hash": hash, "type": opts.type, "left": ruler.style.left, "top": ruler.style.top, "scope": opts.scope});
 		localStorage.setItem('_rlrs_', JSON.stringify(storage));
 	}
 }
 
-function __rlrs_resetRulers() {
+_rlrsRulers.prototype._createRulerVertical = function() {
+	var opts = {
+		"type": "v",
+		"notStored": true
+	};
+	this.__createRuler(opts);
+}
+
+_rlrsRulers.prototype._createRulerHorizontal = function() {
+	var opts = {
+		"type": "h",
+		"notStored": true
+	};
+	this.__createRuler(opts);
+}
+
+_rlrsRulers.prototype._createScopedRulerVertical = function() {
+	var opts = {
+		"type": "v",
+		"notStored": true,
+		"scope": true 
+	};
+	this.__createRuler(opts);
+}
+
+_rlrsRulers.prototype._createScopedRulerHorizontal = function() {
+	var opts = {
+		"type": "h",
+		"notStored": true,
+		"scope": true 
+	};
+	this.__createRuler(opts);
+}
+
+_rlrsRulers.prototype.__resetRulers = function() {
 	if (confirm("All rulers will be deleted. Do you agree?")) {
 		var rulers = document.querySelectorAll("._rlrs_ruler");
 		for (var i=rulers.length-1; i>=0; i--) {
-			rootSpace.removeChild(rulers[i]);
+			this.rootSpace.removeChild(rulers[i]);
 		}
 
-		__saveToStorage("rulers",[]);
+		this.__saveToStorage("rulers",[]);
 	}
 }
 
-function __saveToStorage(key, data) {
+_rlrsRulers.prototype.__saveToStorage = function(key, data) {
 	var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {} ;
 	storage[key] = data;
 
 	localStorage.setItem('_rlrs_', JSON.stringify(storage));
 }
 
-function _rlrs_activateListener(ruler) {
-	ruler.addEventListener("mousedown", function() {
-		_rlrs_rulerSelected(ruler);
-	}.bind(ruler));
-	ruler.addEventListener("mouseup", function() {
-		_rlrs_rulerDeselected(ruler);
-	}.bind(ruler));
-}
-
-function _rlrs_rulerSelected(ruler) {
-	window._rlrs_movingRuler = ruler;
-}
-
-function _rlrs_rulerDeselected(ruler) {
-	var hash = ruler.getAttribute("data-hash");
-	/* save his new position */
-	var storage = JSON.parse(localStorage.getItem('_rlrs_'));
-	for (var i in storage.rulers) {
-		if (storage.rulers[i].hash===hash) {
-			storage.rulers[i].left =  ruler.style.left;
-			storage.rulers[i].top =  ruler.style.top;
-		}
-	}
-	localStorage.setItem('_rlrs_', JSON.stringify(storage));
-
-	window._rlrs_movingRuler = null;
-}
-
-function _rlrs_mouseMove(event) {
-	if(window._rlrs_movingRuler) {
-		if (window._rlrs_movingRuler.getAttribute('data-type')==='v') {
-			
-			window._rlrs_movingRuler.style.left = event.pageX + "px";
+_rlrsRulers.prototype._mouseMove = function(event) {
+	if(this._rlrs_movingRuler) {
+		if (this._rlrs_movingRuler.getAttribute('data-type')==='v') {
+			this._rlrs_movingRuler.style.left = event.pageX + "px";
 		} else {
-			window._rlrs_movingRuler.style.top = event.pageY + "px";
+			this._rlrs_movingRuler.style.top = event.pageY + "px";
 		}
 	}
 }
 
-function __rlrs_makeButton() {
+_rlrsRulers.prototype.__makeButton = function() {
 	var btn = document.createElement("span");
 	btn.style.display = "inline-block";
 	btn.style.margin = "2px";
@@ -185,7 +255,7 @@ function __rlrs_makeButton() {
 	return btn;
 }
 
-function __rlrs_makeSmallButton() {
+_rlrsRulers.prototype.__makeSmallButton = function() {
 	var btn = document.createElement("span");
 	btn.style.display = "inline-block";
 	btn.style.margin = "2px";
@@ -202,9 +272,7 @@ function __rlrs_makeSmallButton() {
 }
 
 /* build control panel */
-function _rlrs_buildControlPanel() {
-	var bodyRef = document.querySelector("body");
-
+_rlrsRulers.prototype._buildControlPanel = function() {
 	var panel = document.createElement("div");
 		panel.setAttribute("id","_rlrs_panel");
 		panel.style.fontFamily = "Verdana, Geneva, sans-serif";
@@ -229,24 +297,30 @@ function _rlrs_buildControlPanel() {
 		headLine.style.fontSize = "10px";
 		headLine.style.borderBottom = "1px dotted #777";
 
-	var addBtnVert = __rlrs_makeButton();
+	var addBtnVert = this.__makeButton();
 		addBtnVert.innerHTML = "<small>add</small><strong>  |  </strong>";
-		addBtnVert.addEventListener("click", _rlrs_createRulerVertical);
-	var addBtnHor = __rlrs_makeButton();
+		addBtnVert.addEventListener("click", this._createRulerVertical.bind(this));
+	var addBtnHor = this.__makeButton();
 		addBtnHor.innerHTML = "<small>add</small><strong> — </strong>";
-		addBtnHor.addEventListener("click", _rlrs_createRulerHorizontal);
+		addBtnHor.addEventListener("click", this._createRulerHorizontal.bind(this));
+	var addBtnScopedVert = this.__makeButton();
+		addBtnScopedVert.innerHTML = "<small>add</small><strong> ǂ |  </strong>";
+		addBtnScopedVert.addEventListener("click", this._createScopedRulerVertical.bind(this));
+	var addBtnScopedHor = this.__makeButton();
+		addBtnScopedHor.innerHTML = "<small>add</small><strong> ǂ — </strong>";
+		addBtnScopedHor.addEventListener("click", this._createScopedRulerHorizontal.bind(this));
 
 	/* reset button */
-	var resetBtn = __rlrs_makeButton();
+	var resetBtn = this.__makeButton();
 		resetBtn.innerHTML = "<strong>reset</strong>";
-		resetBtn.addEventListener("click", __rlrs_resetRulers);
+		resetBtn.addEventListener("click", this.__resetRulers.bind(this));
 
 
 	/* panel position buttons */
-	var tlBtn = __rlrs_makeSmallButton();
-	var trBtn = __rlrs_makeSmallButton();
-	var blBtn = __rlrs_makeSmallButton();
-	var brBtn = __rlrs_makeSmallButton();
+	var tlBtn = this.__makeSmallButton();
+	var trBtn = this.__makeSmallButton();
+	var blBtn = this.__makeSmallButton();
+	var brBtn = this.__makeSmallButton();
 
 		tlBtn.textContent = "˹";
 		tlBtn.setAttribute('data-position', 'tl');
@@ -254,7 +328,7 @@ function _rlrs_buildControlPanel() {
 		tlBtn.style.lineHeight = "10px";
 		tlBtn.style.left = "2px";
 		tlBtn.style.top = "2px";
-		tlBtn.addEventListener("click", _rlrs_setPanelPosition);
+		tlBtn.addEventListener("click", this._setPanelPosition);
 
 		trBtn.textContent = "˺";
 		trBtn.setAttribute('data-position', 'tr');
@@ -263,7 +337,7 @@ function _rlrs_buildControlPanel() {
 		trBtn.style.right = "2px";
 		trBtn.style.top = "2px";
 		trBtn.style.textAlign = "right";
-		trBtn.addEventListener("click", _rlrs_setPanelPosition);
+		trBtn.addEventListener("click", this._setPanelPosition);
 
 		blBtn.textContent = "˻";
 		blBtn.setAttribute('data-position', 'bl');
@@ -271,7 +345,7 @@ function _rlrs_buildControlPanel() {
 		blBtn.style.lineHeight = "0px";
 		blBtn.style.left = "2px";
 		blBtn.style.bottom = "2px";
-		blBtn.addEventListener("click", _rlrs_setPanelPosition);
+		blBtn.addEventListener("click", this._setPanelPosition);
 
 		brBtn.textContent = "˼";
 		brBtn.setAttribute('data-position', 'br');
@@ -280,7 +354,7 @@ function _rlrs_buildControlPanel() {
 		brBtn.style.right = "2px";
 		brBtn.style.bottom = "2px";
 		brBtn.style.textAlign = "right";
-		brBtn.addEventListener("click", _rlrs_setPanelPosition);
+		brBtn.addEventListener("click", this._setPanelPosition);
 
 	panel.appendChild(tlBtn);
 	panel.appendChild(trBtn);
@@ -290,11 +364,13 @@ function _rlrs_buildControlPanel() {
 	panel.appendChild(headLine);
 	panel.appendChild(addBtnVert);
 	panel.appendChild(addBtnHor);
+	panel.appendChild(addBtnScopedVert);
+	panel.appendChild(addBtnScopedHor);
 	panel.appendChild(resetBtn);
-	bodyRef.appendChild(panel);
+	this.bodyRef.appendChild(panel);
 }
 
-function _rlrs_setPanelPosition() {
+_rlrsRulers.prototype._setPanelPosition = function() {
 	var panel = document.querySelector("#_rlrs_panel");
 	var pos = this.getAttribute("data-position"); 
 	/* panel position reset */
@@ -324,25 +400,10 @@ function _rlrs_setPanelPosition() {
 
 /* build controls */
 setTimeout(function(){
-	_rlrs_buildControlPanel();
-
-	/* try to load from localStorage */
-	var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {} ;
-	if (storage.rulers) {
-		for (var i in storage.rulers) {
-			var opts = {
-				"hash": storage.rulers[i].hash,
-				"type": storage.rulers[i].type,
-				"left": storage.rulers[i].left,
-				"top": storage.rulers[i].top
-			};
-
-			__rlrs_createRuler(opts);
-		}
-	}
+	/* construct rulers class */
+	window.rlrs = new _rlrsRulers();
 
 },500);
 
 
 void(0);
-
