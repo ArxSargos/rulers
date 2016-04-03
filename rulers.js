@@ -220,7 +220,30 @@ _rlrsRulers.prototype.__resetRulers = function() {
 		}
 
 		this.__saveToStorage("rulers",[]);
+		return true;
 	}
+	return false;
+}
+
+_rlrsRulers.prototype._importRulers = function() {
+	var input = document.querySelector("#_rlrs_ioInput");
+	if (input.value.length) {
+		if (this.__resetRulers()) {
+			var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {"rulers": []} ;
+			storage.rulers = JSON.parse(input.value);
+			localStorage.setItem('_rlrs_', JSON.stringify(storage));
+		}
+	}
+}
+
+_rlrsRulers.prototype._exportRulers = function() {
+	var input = document.querySelector("#_rlrs_ioInput");
+
+	var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {"rulers": []} ;
+	input.value = JSON.stringify(storage.rulers);
+	input.focus();
+	/* select text */
+	setTimeout(function () { input.select(); }, 0);
 }
 
 _rlrsRulers.prototype.__saveToStorage = function(key, data) {
@@ -309,6 +332,21 @@ _rlrsRulers.prototype._buildControlPanel = function() {
 		addBtnScopedHor.innerHTML = "<small>add</small><strong> ǂ — </strong>";
 		addBtnScopedHor.addEventListener("click", this._createScopedRulerHorizontal.bind(this));
 
+	/* import/export */
+	var importBtn = this.__makeButton();
+		importBtn.innerHTML = "<small>import</small>";
+		importBtn.addEventListener("click", this._importRulers.bind(this));
+	var exportBtn = this.__makeButton();
+		exportBtn.innerHTML = "<small>export</small>";
+		exportBtn.addEventListener("click", this._exportRulers.bind(this));
+	var ioInput =  document.createElement("input");
+		ioInput.setAttribute("id","_rlrs_ioInput");
+		ioInput.style.display = "block";
+		ioInput.style.width = "100%";
+		ioInput.style.padding = "0";
+
+	var delimiter =  document.createElement("hr");
+
 	/* reset button */
 	var resetBtn = this.__makeButton();
 		resetBtn.innerHTML = "<strong>reset</strong>";
@@ -366,6 +404,12 @@ _rlrsRulers.prototype._buildControlPanel = function() {
 	panel.appendChild(addBtnScopedVert);
 	panel.appendChild(addBtnScopedHor);
 	panel.appendChild(resetBtn);
+
+	panel.appendChild(delimiter);
+	panel.appendChild(importBtn);
+	panel.appendChild(exportBtn);
+	panel.appendChild(ioInput);
+
 	this.bodyRef.appendChild(panel);
 }
 
