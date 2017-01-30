@@ -1,0 +1,32 @@
+{
+  "name": "rulers",
+  "description": "Bookmarklet for pixel perfect alignment checking.",
+  "homepage": "https://github.com/ArxSargos/rulers",
+  "keywords": [
+    "rulers",
+    "bookmarklet"
+  ],
+  "author": "Martin Nechvatal <martin.nech@gmail.com>",
+  "dependencies": {
+    "jasmine": "2.4.1"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-bookmarklet": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ArxSargos/rulers.git"
+  },
+  "bin": {},
+  "main": "rulers.js",
+  "scripts": {
+    "build": "gulp build",
+    "test": "node scripts/test.js"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=6.9.x"
+  },
+  "version": "5.0.0"
+}
