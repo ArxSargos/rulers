@@ -20,6 +20,10 @@ var _rlrsRulers = function () {
 	this.workspace.style.height = "0";
 	this.workspace.style.overflow = "visible";
 
+	// positions for quick distance computations
+	this.verticals = [];
+	this.horizontals = [];
+
 	// css reset
 	this.workspace.style.all = "initial";
 
@@ -27,11 +31,11 @@ var _rlrsRulers = function () {
 
 	// ShadowDOM feature detection
 	var shadowDomSupported = false;
-	if (document.body.attachShadow) { shadowDomSupported = true; }
+	// temporary if (document.body.attachShadow) { shadowDomSupported = true; }
 
 	// Attaching ShadowDOM or fallback for just an element
 	if (shadowDomSupported) {
-		this.rootSpace = this.workspace.attachShadow({mode: 'closed'});
+		this.rootSpace = this.workspace.attachShadow({mode: 'open'});
 	} else { // fallback to older browsers
 		this.rootSpace = this.workspace;
 	}
@@ -56,10 +60,30 @@ var _rlrsRulers = function () {
 	this.scaleHorizontal += "background-position: 0px 0px; background-repeat: repeat-x; width: 100%; margin-top: -25px; height: 50px;";
 	this.scaleHorizontal += "}";
 
+	this.distTopStyle  = "._rlrs_distTop {";
+	this.distTopStyle += "display: none; position: absolute; bottom: 10px; background: #333; padding: 3px; color: #fff;";
+	this.distTopStyle += "} .active > ._rlrs_distTop { display: block; }";
+
+	this.distBottomStyle  = "._rlrs_distBottom {";
+	this.distBottomStyle += "display: none; position: absolute; top: 10px; background: #333; padding: 3px; color: #fff;";
+	this.distBottomStyle += "} .active > ._rlrs_distBottom { display: block; }";
+
+	this.distLeftStyle  = "._rlrs_distLeft {";
+	this.distLeftStyle += "display: none; position: absolute; right: 10px; background: #333; padding: 3px; color: #fff;";
+	this.distLeftStyle += "} .active > ._rlrs_distLeft { display: block; }";
+
+	this.distRightStyle  = "._rlrs_distRight {";
+	this.distRightStyle += "display: none; position: absolute; left: 10px; background: #333; padding: 3px; color: #fff;";
+	this.distRightStyle += "} .active > ._rlrs_distRight { display: block; }";
+
 	this.headRef = document.head || document.getElementsByTagName('head')[0];
 
 	this.rulersStyles = "<style>";
 	this.rulersStyles += this.scaleVertical + this.scaleHorizontal;
+	this.rulersStyles += this.distTopStyle;
+	this.rulersStyles += this.distBottomStyle;
+	this.rulersStyles += this.distLeftStyle;
+	this.rulersStyles += this.distRightStyle;
 	this.rulersStyles += "</style>";
 	this.headRef.innerHTML += this.rulersStyles;
 
@@ -91,11 +115,74 @@ _rlrsRulers.prototype.__newHash = function() {
 	return Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);
 };
 
+
+_rlrsRulers.prototype.__calculateDist = function(coords, pos) {
+	var closestLower = 0;
+	var closestBigger = null;
+	for (var i=0, end = coords.length; i< end; i++) {
+		if (coords[i] < pos) {
+			closestLower = coords[i];
+		} else {
+			closestBigger = coords[i];
+			break;
+		}
+	}
+	if (closestBigger === null) { 
+		return [pos - closestLower, 0]
+	}
+	return [pos - closestLower, closestBigger - pos];
+}
+
+_rlrsRulers.prototype._calculateDistancesH = function(pos) {
+	return this.__calculateDist(this.horizontals, pos);
+}
+
+_rlrsRulers.prototype._calculateDistancesV = function(pos) {
+	return this.__calculateDist(this.verticals, pos);
+}
+
+_rlrsRulers.prototype._setVerticals = function(pos) {
+	this.verticals = [];
+	var rulers = document.querySelectorAll("._rlrs_ruler");
+	for (var i=0, end=rulers.length; i < end; i++) {
+		var hasScale = rulers[i].classList.contains("_rlrs_scale");
+		var type =rulers[i].getAttribute("data-type");
+		if (!hasScale && type==='v') {
+			var rpos = parseInt(rulers[i].style.left, 10);
+			if (rpos !== pos) {
+				this.verticals.push(rpos);
+			}
+		}
+	}
+	this.verticals = this.verticals.sort(function(a, b) { return a - b; });
+}
+
+_rlrsRulers.prototype._setHorizontals = function(pos) {
+	this.horizontals = [];
+	var rulers = document.querySelectorAll("._rlrs_ruler");
+	for (var i=0, end=rulers.length; i < end; i++) {
+		var hasScale = rulers[i].classList.contains("_rlrs_scale");
+		var type =rulers[i].getAttribute("data-type");
+		if (!hasScale && type==='h') {
+			var rpos = parseInt(rulers[i].style.top, 10);
+			if (rpos !== pos) {
+				this.horizontals.push(rpos);
+			}
+		}
+	}
+	this.horizontals.sort(function(a, b) { return a - b; });
+}
+
 _rlrsRulers.prototype._rulerSelected = function(ruler) {
 	this._rlrs_movingRuler = ruler;
+	ruler.classList.add("active");
+	// populate verticals and horizontals
+	var type = ruler.getAttribute("data-type");
+	type==='v' ? this._setVerticals(parseInt(ruler.style.left, 10)) : this._setHorizontals(parseInt(ruler.style.top, 10));
 };
 
 _rlrsRulers.prototype._rulerDeselected = function(ruler) {
+	ruler.classList.remove("active");
 	var hash = ruler.getAttribute("data-hash");
 	/* save his new position */
 	var storage = JSON.parse(localStorage.getItem('_rlrs_'));
@@ -112,10 +199,14 @@ _rlrsRulers.prototype._rulerDeselected = function(ruler) {
 
 _rlrsRulers.prototype._activateListener = function(ruler) {
 	var self = this;
-	ruler.addEventListener("mousedown", function() {
+	ruler.addEventListener("mousedown", function(event) {
+		event.stopPropagation();
+		event.preventDefault();
 		self._rulerSelected(ruler);
 	}.bind(ruler));
-	ruler.addEventListener("mouseup", function() {
+	ruler.addEventListener("mouseup", function(event) {
+		event.stopPropagation();
+		event.preventDefault();
 		self._rulerDeselected(ruler);
 	}.bind(ruler));
 };
@@ -174,7 +265,13 @@ _rlrsRulers.prototype.__createRuler = function(opts) {
 		ruler.style.top = opts.top ? opts.top : windVertHalf;
 	}
 
+	ruler.innerHTML = (opts.type==='v') ? 
+		'<div class="_rlrs_distLeft"></div><div class="_rlrs_distRight"></div>'
+		:
+		'<div class="_rlrs_distTop"></div><div class="_rlrs_distBottom"></div>';
+
 	if(opts.scope===true) {
+		ruler.classList.add("_rlrs_scale");
 		ruler.innerHTML = (opts.type==='v') ? '<div class="_rlrs_scaleVert"></div>' : '<div class="_rlrs_scaleHor"></div>';
 	}
 
@@ -227,7 +324,7 @@ _rlrsRulers.prototype._createScopedRulerHorizontal = function() {
 
 _rlrsRulers.prototype.__resetRulers = function() {
 	if (confirm("All rulers will be deleted. Do you agree?")) {
-		var rulers = document.querySelectorAll("._rlrs_ruler");
+		var rulers = this.rootSpace.querySelectorAll("._rlrs_ruler");
 		for (var i=rulers.length-1; i>=0; i--) {
 			this.rootSpace.removeChild(rulers[i]);
 		}
@@ -239,18 +336,19 @@ _rlrsRulers.prototype.__resetRulers = function() {
 };
 
 _rlrsRulers.prototype._importRulers = function() {
-	var input = document.querySelector("#_rlrs_ioInput");
+	var input = this.rootSpace.querySelector("#_rlrs_ioInput");
 	if (input.value.length) {
 		if (this.__resetRulers()) {
 			var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {"rulers": []} ;
 			storage.rulers = JSON.parse(input.value);
 			localStorage.setItem('_rlrs_', JSON.stringify(storage));
+			alert("Rulers imported. Please refresh and rerun bookmarklet.");
 		}
 	}
 };
 
 _rlrsRulers.prototype._exportRulers = function() {
-	var input = document.querySelector("#_rlrs_ioInput");
+	var input = this.rootSpace.querySelector("#_rlrs_ioInput");
 
 	var storage = JSON.parse(localStorage.getItem('_rlrs_')) || {"rulers": []} ;
 	input.value = JSON.stringify(storage.rulers);
@@ -268,12 +366,43 @@ _rlrsRulers.prototype.__saveToStorage = function(key, data) {
 
 _rlrsRulers.prototype._mouseMove = function(event) {
 	if(this._rlrs_movingRuler) {
+		event.stopPropagation();
+		event.preventDefault();
+
+		var hasScale = this._rlrs_movingRuler.classList.contains("_rlrs_scale");
+
 		if (this._rlrs_movingRuler.getAttribute('data-type')==='v') {
+			if (!hasScale) {
+				var leftDistRef = this._rlrs_movingRuler.querySelector("._rlrs_distLeft");
+				var rightDistRef = this._rlrs_movingRuler.querySelector("._rlrs_distRight");
+
+				var dist = this._calculateDistancesV(event.pageX);
+				leftDistRef.innerHTML = dist[0] + "px";
+				rightDistRef.innerHTML = dist[1] + "px";
+
+				var tmp = (event.pageY - 15);
+				leftDistRef.style.top = tmp + "px";
+				rightDistRef.style.top = tmp + "px";
+			}
+			
 			this._rlrs_movingRuler.style.left = event.pageX + "px";
 			if (this._rlrs_movingRuler.children.length>0 && this._rlrs_movingRuler.children[0].classList.contains("_rlrs_scaleVert")) {
 				this._rlrs_movingRuler.children[0].style.backgroundPosition = 0 + "px " + event.pageY + "px";
             }
 		} else {
+			if (!hasScale) {
+				var topDistRef = this._rlrs_movingRuler.querySelector("._rlrs_distTop");
+				var bottomDistRef = this._rlrs_movingRuler.querySelector("._rlrs_distBottom");
+
+				var dist = this._calculateDistancesH(event.pageY);
+				topDistRef.innerHTML = dist[0] + "px";
+				bottomDistRef.innerHTML = dist[1] + "px";
+
+				var tmp = (event.pageX - 15);
+				topDistRef.style.left = tmp + "px";
+				bottomDistRef.style.left = tmp + "px";
+			}
+
 			this._rlrs_movingRuler.style.top = event.pageY + "px";
             if (this._rlrs_movingRuler.children.length>0 && this._rlrs_movingRuler.children[0].classList.contains("_rlrs_scaleHor")) {
                 this._rlrs_movingRuler.children[0].style.backgroundPosition = event.pageX + "px " + 0 + "px" ;
@@ -358,13 +487,13 @@ _rlrsRulers.prototype._buildControlPanel = function() {
 	var exportBtn = this.__makeButton();
 		exportBtn.innerHTML = "<small>export</small>";
 		exportBtn.addEventListener("click", this._exportRulers.bind(this));
-	var ioInput =  document.createElement("input");
+	var ioInput = document.createElement("input");
 		ioInput.setAttribute("id","_rlrs_ioInput");
 		ioInput.style.display = "block";
 		ioInput.style.width = "100%";
 		ioInput.style.padding = "0";
 
-	var delimiter =  document.createElement("hr");
+	var delimiter = document.createElement("hr");
 
 	/* reset button */
 	var resetBtn = this.__makeButton();
